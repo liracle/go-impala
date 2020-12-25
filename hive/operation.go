@@ -67,7 +67,20 @@ func (op *Operation) FetchResults(ctx context.Context, schema *TableSchema) (*Re
 	if err != nil {
 		return nil, err
 	}
-
+	if ctx.Done() != nil {
+		cnt := 0
+		for resp.Results == nil {
+			select {
+			case <-ctx.Done():
+				goto outFetchLoop
+			default:
+				resp, err = fetch(ctx, op, schema)
+				cnt++
+			}
+			op.hive.log.Printf("refetch time: %d", cnt)
+		}
+	}
+outFetchLoop:
 	rs := ResultSet{
 		idx:     0,
 		length:  length(resp.Results),
